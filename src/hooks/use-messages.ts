@@ -1,79 +1,89 @@
-import { useEffect } from "react"
-import { GetMessagesResponse } from "../services/get-messages"
 import { useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
+import type { GetMessagesResponse } from "../services/get-messages"
 
-type WebhookMessage = 
-  | {Kind: "message_created", Value: {ID: string, Message: string}}
-  | {Kind: "message_answered", Value: {ID: string}}
-  | {Kind: "message_reaction_increased", Value: {ID: string, count: number}}
-  | {Kind: "message_reaction_decreased", Value: {ID: string, count: number}}
+type WebhookMessage =
+  | { kind: "message_created"; value: { id: string, message: string } }
+  | { kind: "message_answered"; value: { id: string } }
+  | { kind: "message_reaction_increased"; value: { id: string; count: number } }
+  | { kind: "message_reaction_decreased"; value: { id: string; count: number } };
 
-export function useMessages(roomId: string){
+export function useMessages(roomId:string) {
   const queryClient = useQueryClient()
-  useEffect(()=>{
+
+  useEffect(() => {
     const ws = new WebSocket(`ws://localhost:8080/subscribe/${roomId}`)
+
     ws.onopen = () => {
-      console.log("Conectado")
+      console.log('Websocket connected!')
     }
+
+    ws.onclose = () => {
+      console.log('Websocket connection closed!')
+    }
+
     ws.onmessage = (event) => {
       const data: WebhookMessage = JSON.parse(event.data)
-      switch(data.Kind){
-        case "message_created":
-          queryClient.setQueryData<GetMessagesResponse>(["messages", roomId], state =>{
+
+      switch(data.kind) {
+        case 'message_created':
+          queryClient.setQueryData<GetMessagesResponse>(['messages', roomId], state => {
             return {
               messages: [
-              ...(state?.messages ?? []),
-              {
-                id: data.Value.ID,
-                text: data.Value.Message,
-                amountReactions: 0,
-                answered: false
-              }
-            ],
+                ...(state?.messages ?? []),
+                {
+                  id: data.value.id,
+                  text: data.value.message,
+                  amountReactions: 0,
+                  answered: false,
+                }
+              ],
             }
           })
-          break
-        case "message_answered":
-          queryClient.setQueryData<GetMessagesResponse>(["messages", roomId], state => {
-            if(!state){
+
+          break;
+        case 'message_answered':
+          queryClient.setQueryData<GetMessagesResponse>(['messages', roomId], state => {
+            if (!state) {
               return undefined
             }
+
             return {
               messages: state.messages.map(item => {
-                if(item.id === data.Value.ID){
-                  return {
-                    ...item,
-                    answered: true
-                  }
+                if (item.id === data.value.id) {
+                  return { ...item, answered: true }
                 }
-              return item
+
+                return item
               }),
             }
           })
-          break
-        case "message_reaction_increased":
-        case "message_reaction_decreased":
-          queryClient.setQueryData<GetMessagesResponse>(["messages", roomId], state => {
-              if(!state){
-                return undefined
-              }
-              return {
-                messages: state.messages.map(item => {
-                  if(item.id === data.Value.ID){
-                    return {
-                      ...item,
-                      amountReactions: data.Value.count
-                    }
-                  }
+
+          break;
+        case 'message_reaction_increased':
+        case 'message_reaction_decreased':
+          queryClient.setQueryData<GetMessagesResponse>(['messages', roomId], state => {
+            if (!state) {
+              return undefined
+            }
+
+            return {
+              messages: state.messages.map(item => {
+                if (item.id === data.value.id) {
+                  return { ...item, amountReactions: data.value.count }
+                }
+
                 return item
-                }),
-              }
-            })
-            break
-          
-          default:
-          break
+              }),
+            }
+          })
+
+          break;
       }
     }
-  },[roomId, queryClient])
+
+    return () => {
+      ws.close()
+    }
+  }, [roomId, queryClient])
 }

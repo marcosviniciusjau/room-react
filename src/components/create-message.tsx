@@ -4,9 +4,7 @@ import { useParams } from "react-router-dom"
 import { ArrowRight } from "lucide-react"
 import { createMessage } from "../services/create-message"
 export function CreateMessage(){
-  
   const {roomId} = useParams()
-
   async function createMessageAction(data: FormData){
     const message = data.get('message')?.toString()
     if(!message){
