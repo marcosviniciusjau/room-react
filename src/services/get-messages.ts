@@ -1,7 +1,14 @@
 import { api } from "./api"
 
-
-export async function getMessages(roomId: string) {
+export interface GetMessagesResponse {
+  messages: {
+    id: string
+    text: string
+    amountReactions: number
+    answered: boolean
+  }[]
+}
+export async function getMessages(roomId: string):Promise<GetMessagesResponse> {
     const response = await api.get(`/rooms/${roomId}/messages`)
 
     const data: Array<{
